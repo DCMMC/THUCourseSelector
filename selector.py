@@ -11,9 +11,9 @@ from selenium.common.exceptions import TimeoutException
 
 # https://market.aliyun.com/products/57124001/cmapi00035185.html
 captcha_appcode = open('captcha_appcode.txt').read().strip()
+u, p = input('User: '), input('Password: ')
 # driver = webdriver.Chrome()
 driver = webdriver.Firefox()
-u, p = input('User: '), input('Password: ')
 # 两次操作的间隔不能小于 3s
 delay = [3, 5]
 max_tries = 199
@@ -60,7 +60,7 @@ for loop in range(max_loop):
         passwd.send_keys(p)
         capt.send_keys(captcha)
         btn_login.click()
-        sleep(8)
+        sleep(2)
     driver.switch_to.default_content()
     driver.switch_to.frame(
         driver.find_element_by_css_selector('frame[name^="tree"]'))
@@ -75,8 +75,16 @@ for loop in range(max_loop):
             driver.find_element_by_css_selector('frame[name^="right"]'))
         if len(driver.find_elements_by_css_selector(
                 'font[size="5px"][color="#595959"]')):
-            print('选课尚未开始')
-            sys.exit(-1)
+            print('选课尚未开始, 10s 后重试')
+            sleep(10)
+            driver.switch_to.default_content()
+            driver.switch_to.frame(
+                driver.find_element_by_css_selector('frame[name^="tree"]'))
+            sleep(1)
+            driver.find_element_by_link_text('选课').click()
+            sleep(1)
+            continue
+            # sys.exit(-1)
         driver.switch_to.frame(
             driver.find_element_by_css_selector('iframe[name^="fcxkFrm"]'))
         # 每次登陆后最多 200 次操作

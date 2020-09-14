@@ -5,6 +5,7 @@ import requests
 from time import sleep
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 
@@ -13,6 +14,8 @@ captcha_appcode = open('captcha_appcode.txt').read().strip()
 u, p = input('User: '), input('Password: ')
 # driver = webdriver.Chrome()
 driver = webdriver.Firefox()
+# driver.implicitly_wait(60 * 5)
+wait = WebDriverWait(driver, 100)
 # 两次操作的间隔不能小于 3s
 delay = [3, 5]
 max_tries = 199
@@ -43,6 +46,8 @@ def get_captcha(captcha_base64):
 for loop in range(max_loop):
     while 'xkYjs.vxkYjsXkbBs.do' not in driver.current_url:
         driver.get('http://zhjwxk.cic.tsinghua.edu.cn/xklogin.do')
+        wait.until(EC.presence_of_element_located(
+            (By.ID, '_login_image_')))
         user = driver.find_element_by_name('j_username')
         passwd = driver.find_element_by_name('j_password')
         capt = driver.find_element_by_name('_login_image_')
@@ -61,31 +66,53 @@ for loop in range(max_loop):
         btn_login.click()
         sleep(2)
     driver.switch_to.default_content()
-    driver.switch_to.frame(
-        driver.find_element_by_css_selector('frame[name^="tree"]'))
-    sleep(1)
-    driver.find_element_by_css_selector('a[onclick^="showhidediv()"]').click()
-    sleep(1)
-    driver.find_element_by_link_text('选课').click()
-    sleep(1)
+    try:
+        wait.until(
+            EC.frame_to_be_available_and_switch_to_it(
+                (By.CSS_SELECTOR, 'frame[name^="tree"]')))
+        wait.until(
+            EC.presence_of_element_located(
+                (By.CSS_SELECTOR, 'a[onclick^="showhidediv()"]')))
+        driver.find_element_by_css_selector('a[onclick^="showhidediv()"]').click()
+        wait.until(
+            EC.presence_of_element_located(
+                (By.LINK_TEXT, '选课')))
+        driver.find_element_by_link_text('选课').click()
+    except TimeoutException:
+        print('timeout, continue')
+        continue
     for cnt in range(1, random.randint(max_tries - 5, max_tries)):
         driver.switch_to.default_content()
-        driver.switch_to.frame(
-            driver.find_element_by_css_selector('frame[name^="right"]'))
+        try:
+            wait.until(EC.frame_to_be_available_and_switch_to_it(
+                (By.CSS_SELECTOR, 'frame[name^="right"]')))
+        except TimeoutException:
+            print('timeout, continue')
+            continue
         if len(driver.find_elements_by_css_selector(
                 'font[size="5px"][color="#595959"]')):
             print('选课尚未开始, 10s 后重试')
             sleep(10)
             driver.switch_to.default_content()
-            driver.switch_to.frame(
-                driver.find_element_by_css_selector('frame[name^="tree"]'))
-            sleep(1)
-            driver.find_element_by_link_text('选课').click()
+            try:
+                wait.until(EC.frame_to_be_available_and_switch_to_it(
+                    (By.CSS_SELECTOR, 'frame[name^="tree"]')))
+                driver.find_element_by_link_text('选课').click()
+            except TimeoutException:
+                pass
             sleep(1)
             continue
             # sys.exit(-1)
-        driver.switch_to.frame(
-            driver.find_element_by_css_selector('iframe[name^="fcxkFrm"]'))
+        try:
+            wait.until(EC.frame_to_be_available_and_switch_to_it(
+                (By.CSS_SELECTOR, 'iframe[name^="fcxkFrm"]')))
+            wait.until(EC.presence_of_element_located(
+                (By.TAG_NAME, 'body')))
+            wait.until(EC.presence_of_element_located(
+                (By.ID, 'table_t')))
+        except TimeoutException:
+            print('timeout, continue')
+            continue
         # 每次登陆后最多 200 次操作
         if '您本次登录后操作过于频繁' in driver.find_element_by_tag_name(
                 'body').get_attribute('innerHTML'):
@@ -103,10 +130,14 @@ for loop in range(max_loop):
                     coordinates['x'], coordinates['y']))
                 clazz.click()
         driver.switch_to.default_content()
-        driver.switch_to.frame(
-            driver.find_element_by_css_selector('frame[name^="right"]'))
-        driver.switch_to.frame(
-            driver.find_element_by_css_selector('iframe[name^="fcxkFrm"]'))
+        try:
+            wait.until(EC.frame_to_be_available_and_switch_to_it(
+                (By.CSS_SELECTOR, 'frame[name^="right"]')))
+            wait.until(EC.frame_to_be_available_and_switch_to_it(
+                (By.CSS_SELECTOR, 'iframe[name^="fcxkFrm"]')))
+        except TimeoutException:
+            print('timeout, continue')
+            continue
         btn_commit = driver.find_element_by_css_selector(
             'input[onclick^="commitFcxAdd()"]')
         coordinates = btn_commit.location_once_scrolled_into_view
@@ -115,7 +146,7 @@ for loop in range(max_loop):
         btn_commit.click()
 
         try:
-            WebDriverWait(driver, 10).until(
+            wait.until(
                 EC.alert_is_present(),
                 'Timeout waiting for commiting respond.')
             alert = driver.switch_to.alert
@@ -123,6 +154,7 @@ for loop in range(max_loop):
             alert.accept()
         except TimeoutException:
             print('Timeout waiting for commiting respond.')
+            continue
         except Exception as e:
             print('Exception:', e)
 

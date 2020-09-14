@@ -47,7 +47,7 @@ for loop in range(max_loop):
     while 'xkYjs.vxkYjsXkbBs.do' not in driver.current_url:
         driver.get('http://zhjwxk.cic.tsinghua.edu.cn/xklogin.do')
         wait.until(EC.presence_of_element_located(
-            (By.ID, '_login_image_')))
+            (By.NAME, '_login_image_')))
         user = driver.find_element_by_name('j_username')
         passwd = driver.find_element_by_name('j_password')
         capt = driver.find_element_by_name('_login_image_')

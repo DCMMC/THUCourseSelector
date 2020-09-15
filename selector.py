@@ -1,5 +1,6 @@
 import json
 import random
+import traceback
 import datetime
 import requests
 from time import sleep
@@ -43,129 +44,198 @@ def get_captcha(captcha_base64):
     return captchacode.upper()
 
 
-for loop in range(max_loop):
-    while 'xkYjs.vxkYjsXkbBs.do' not in driver.current_url:
-        driver.get('http://zhjwxk.cic.tsinghua.edu.cn/xklogin.do')
-        wait.until(EC.presence_of_element_located(
-            (By.NAME, '_login_image_')))
-        user = driver.find_element_by_name('j_username')
-        passwd = driver.find_element_by_name('j_password')
-        capt = driver.find_element_by_name('_login_image_')
-        captcha_base64 = driver.find_element_by_id(
-            'captcha').screenshot_as_base64
-        captcha = get_captcha(captcha_base64)
-
-        btn_login = driver.find_element_by_css_selector(
-            'a[onclick^="doLogin();"]').find_element_by_tag_name('img')
-        coordinates = btn_login.location_once_scrolled_into_view
-        driver.execute_script('window.scrollTo({}, {});'.format(
-            coordinates['x'], coordinates['y']))
-        user.send_keys(u)
-        passwd.send_keys(p)
-        capt.send_keys(captcha)
-        btn_login.click()
-        sleep(2)
+def toggle_select_course():
     driver.switch_to.default_content()
     try:
         wait.until(
             EC.frame_to_be_available_and_switch_to_it(
                 (By.CSS_SELECTOR, 'frame[name^="tree"]')))
+    except TimeoutException:
+        print('timeout, continue')
+        traceback.print_exc()
+        return False
+    try:
         wait.until(
             EC.presence_of_element_located(
                 (By.CSS_SELECTOR, 'a[onclick^="showhidediv()"]')))
         driver.find_element_by_css_selector('a[onclick^="showhidediv()"]').click()
+    except TimeoutException:
+        print('timeout, continue')
+        traceback.print_exc()
+        return False
+    try:
         wait.until(
             EC.presence_of_element_located(
                 (By.LINK_TEXT, '选课')))
         driver.find_element_by_link_text('选课').click()
     except TimeoutException:
         print('timeout, continue')
-        continue
-    for cnt in range(1, random.randint(max_tries - 5, max_tries)):
-        driver.switch_to.default_content()
-        try:
-            wait.until(EC.frame_to_be_available_and_switch_to_it(
-                (By.CSS_SELECTOR, 'frame[name^="right"]')))
-        except TimeoutException:
-            print('timeout, continue')
+        traceback.print_exc()
+        return False
+    return True
+
+
+for loop in range(max_loop):
+    try:
+        driver.get('http://zhjwxk.cic.tsinghua.edu.cn/xklogin.do')
+        while 'xkYjs.vxkYjsXkbBs.do' not in driver.current_url:
+            driver.get('http://zhjwxk.cic.tsinghua.edu.cn/xklogin.do')
+            wait.until(EC.presence_of_element_located(
+                (By.NAME, '_login_image_')))
+            user = driver.find_element_by_name('j_username')
+            passwd = driver.find_element_by_name('j_password')
+            capt = driver.find_element_by_name('_login_image_')
+            captcha_base64 = driver.find_element_by_id(
+                'captcha').screenshot_as_base64
+            captcha = get_captcha(captcha_base64)
+
+            btn_login = driver.find_element_by_css_selector(
+                'a[onclick^="doLogin();"]').find_element_by_tag_name('img')
+            coordinates = btn_login.location_once_scrolled_into_view
+            driver.execute_script('window.scrollTo({}, {});'.format(
+                coordinates['x'], coordinates['y']))
+            user.send_keys(u)
+            passwd.send_keys(p)
+            capt.send_keys(captcha)
+            btn_login.click()
+            sleep(2)
+
+        if not toggle_select_course():
             continue
-        if len(driver.find_elements_by_css_selector(
-                'font[size="5px"][color="#595959"]')):
-            print('选课尚未开始, 10s 后重试')
-            sleep(10)
+
+        for cnt in range(1, random.randint(max_tries - 5, max_tries)):
             driver.switch_to.default_content()
             try:
                 wait.until(EC.frame_to_be_available_and_switch_to_it(
-                    (By.CSS_SELECTOR, 'frame[name^="tree"]')))
-                driver.find_element_by_link_text('选课').click()
+                    (By.CSS_SELECTOR, 'frame[name^="right"]')))
             except TimeoutException:
-                pass
-            sleep(1)
-            continue
-            # sys.exit(-1)
-        try:
-            wait.until(EC.frame_to_be_available_and_switch_to_it(
-                (By.CSS_SELECTOR, 'iframe[name^="fcxkFrm"]')))
-            wait.until(EC.presence_of_element_located(
-                (By.TAG_NAME, 'body')))
-            wait.until(EC.presence_of_element_located(
-                (By.ID, 'table_t')))
-        except TimeoutException:
-            print('timeout, continue')
-            continue
-        # 每次登陆后最多 200 次操作
-        if '您本次登录后操作过于频繁' in driver.find_element_by_tag_name(
-                'body').get_attribute('innerHTML'):
-            break
-        for clazz in driver.find_element_by_id(
-                'table_t').find_elements_by_css_selector(
-                    'input[type^="checkbox"]'):
-            course_id, class_id = map(
-                int,
-                clazz.get_attribute('value').split(';')[1:3])
-            if class_id >= 200 and course_id in obj_courses and \
-                    (class_id in obj_courses[course_id] or '*' in obj_courses[course_id]):
-                coordinates = clazz.location_once_scrolled_into_view
-                driver.execute_script('window.scrollTo({}, {});'.format(
-                    coordinates['x'], coordinates['y']))
-                clazz.click()
-        driver.switch_to.default_content()
-        try:
-            wait.until(EC.frame_to_be_available_and_switch_to_it(
-                (By.CSS_SELECTOR, 'frame[name^="right"]')))
-            wait.until(EC.frame_to_be_available_and_switch_to_it(
-                (By.CSS_SELECTOR, 'iframe[name^="fcxkFrm"]')))
-        except TimeoutException:
-            print('timeout, continue')
-            continue
-        btn_commit = driver.find_element_by_css_selector(
-            'input[onclick^="commitFcxAdd()"]')
-        coordinates = btn_commit.location_once_scrolled_into_view
-        driver.execute_script('window.scrollTo({}, {});'.format(
-            coordinates['x'], coordinates['y']))
-        btn_commit.click()
+                print('timeout, continue')
+                traceback.print_exc()
+                driver.refresh()
+                sleep(1)
+                toggle_select_course()
+                continue
+            if len(driver.find_elements_by_css_selector(
+                    'font[size="5px"][color="#595959"]')):
+                print('选课尚未开始, 10s 后重试')
+                sleep(10)
+                driver.switch_to.default_content()
+                try:
+                    wait.until(EC.frame_to_be_available_and_switch_to_it(
+                        (By.CSS_SELECTOR, 'frame[name^="tree"]')))
+                    driver.find_element_by_link_text('选课').click()
+                except TimeoutException:
+                    pass
+                sleep(1)
+                continue
+                # sys.exit(-1)
+            try:
+                wait.until(EC.frame_to_be_available_and_switch_to_it(
+                    (By.CSS_SELECTOR, 'iframe[name^="fcxkFrm"]')))
+            except TimeoutException:
+                print('timeout, continue')
+                traceback.print_exc()
+                driver.refresh()
+                sleep(1)
+                toggle_select_course()
+                continue
+            try:
+                wait.until(EC.presence_of_element_located(
+                    (By.TAG_NAME, 'body')))
+            except TimeoutException:
+                print('timeout, continue')
+                traceback.print_exc()
+                driver.refresh()
+                sleep(1)
+                toggle_select_course()
+                continue
+            # 每次登陆后最多 200 次操作
+            if '您本次登录后操作过于频繁' in driver.find_element_by_tag_name(
+                    'body').get_attribute('innerHTML'):
+                print('操作过多，重新登录')
+                break
+            try:
+                wait.until(EC.presence_of_element_located(
+                    (By.ID, 'table_t')))
+            except TimeoutException:
+                print('timeout, continue')
+                traceback.print_exc()
+                driver.refresh()
+                sleep(1)
+                toggle_select_course()
+                continue
+            for clazz in driver.find_element_by_id(
+                    'table_t').find_elements_by_css_selector(
+                        'input[type^="checkbox"]'):
+                course_id, class_id = map(
+                    int,
+                    clazz.get_attribute('value').split(';')[1:3])
+                if class_id >= 200 and (course_id in obj_courses) and \
+                        (('*' in obj_courses[course_id] and \
+                          (class_id not in obj_courses[course_id])) or \
+                        ('*' not in obj_courses[course_id] and \
+                         class_id in obj_courses[course_id])):
+                    coordinates = clazz.location_once_scrolled_into_view
+                    driver.execute_script('window.scrollTo({}, {});'.format(
+                        coordinates['x'], coordinates['y']))
+                    clazz.click()
+            driver.switch_to.default_content()
+            try:
+                wait.until(EC.frame_to_be_available_and_switch_to_it(
+                    (By.CSS_SELECTOR, 'frame[name^="right"]')))
+            except TimeoutException:
+                print('timeout, continue')
+                traceback.print_exc()
+                driver.refresh()
+                sleep(1)
+                toggle_select_course()
+                continue
+            try:
+                wait.until(EC.frame_to_be_available_and_switch_to_it(
+                    (By.CSS_SELECTOR, 'iframe[name^="fcxkFrm"]')))
+            except TimeoutException:
+                print('timeout, continue')
+                traceback.print_exc()
+                driver.refresh()
+                sleep(1)
+                toggle_select_course()
+                continue
+            btn_commit = driver.find_element_by_css_selector(
+                'input[onclick^="commitFcxAdd()"]')
+            coordinates = btn_commit.location_once_scrolled_into_view
+            driver.execute_script('window.scrollTo({}, {});'.format(
+                coordinates['x'], coordinates['y']))
+            btn_commit.click()
 
-        try:
-            wait.until(
-                EC.alert_is_present(),
-                'Timeout waiting for commiting respond.')
-            alert = driver.switch_to.alert
-            print('Commiting respond:', '\n'.join(alert.text.split('!')))
-            alert.accept()
-        except TimeoutException:
-            print('Timeout waiting for commiting respond.')
-            continue
-        except Exception as e:
-            print('Exception:', e)
+            try:
+                wait.until(
+                    EC.alert_is_present(),
+                    'Timeout waiting for commiting respond.')
+                alert = driver.switch_to.alert
+                print('Commiting respond:', '\n'.join(alert.text.split('!')))
+                alert.accept()
+            except TimeoutException:
+                print('Timeout waiting for commiting respond.')
+                traceback.print_exc()
+                driver.refresh()
+                sleep(1)
+                toggle_select_course()
+                continue
+            except Exception as e:
+                print('Exception:', e)
 
-        now = datetime.datetime.now()
-        today7am = now.replace(hour=7, minute=0, second=0)
-        today2am = now.replace(hour=2, minute=0, second=0)
-        if today2am <= now < today7am:
-            # delay for 4.5hrs
-            delay[0] += 60 * 60 * 4.5
-            delay[1] += 60 * 60 * 4.5
-        curr_delay = random.randint(*delay)
-        print('Waiting for {}s.'.format(curr_delay))
-        sleep(curr_delay)
-    print(f'End of Loop {loop}')
+            now = datetime.datetime.now()
+            today7am = now.replace(hour=7, minute=0, second=0)
+            today2am = now.replace(hour=2, minute=0, second=0)
+            if today2am <= now < today7am:
+                # delay for 4.5hrs
+                delay[0] += 60 * 60 * 4.5
+                delay[1] += 60 * 60 * 4.5
+            curr_delay = random.randint(*delay)
+            print('Waiting for {}s.'.format(curr_delay))
+            sleep(curr_delay)
+        print(f'End of Loop {loop}')
+    except:
+        print('encount exceptions:')
+        traceback.print_exc()
+        print('continue')

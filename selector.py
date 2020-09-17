@@ -235,7 +235,7 @@ for loop in range(max_loop):
             print('Waiting for {}s.'.format(curr_delay))
             sleep(curr_delay)
         print(f'End of Loop {loop}')
-    except:
+    except Exception:
         print('encount exceptions:')
         traceback.print_exc()
         print('continue')
